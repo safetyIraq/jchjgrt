@@ -23,8 +23,9 @@ jobs:
     
     steps:
     - name: 🔧 تجهيز السيرفر
+      shell: pwsh
       run: |
-        echo "🔄 جاري تجهيز السيرفر..."
+        Write-Host "🔄 جاري تجهيز السيرفر..."
         
         # تفعيل RDP
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
@@ -41,63 +42,70 @@ jobs:
         powercfg -change -standby-timeout-ac 0
         powercfg -change -hibernate-timeout-ac 0
         
-        echo "✅ تم تجهيز السيرفر"
+        Write-Host "✅ تم تجهيز السيرفر"
 
     - name: 📡 جلب IP العام
+      shell: pwsh
       run: |
         $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
         $port = 3389
         
-        echo "========================================"
-        echo "🖥️  سيرفر RDP جاهز!"
-        echo "========================================"
-        echo "📡 IP: $ip"
-        echo "🔌 PORT: $port"
-        echo "👤 USER: runneradmin"
-        echo "🔑 PASS: P@ssw0rd!"
-        echo "========================================"
-        echo ""
-        echo "🔗 للاتصال من ويندوز:"
-        echo "mstsc /v:$ip:$port"
-        echo ""
-        echo "📱 للاتصال من Termux:"
-        echo "xfreerdp /v:$ip:$port /u:runneradmin /p:P@ssw0rd! /w:1280 /h:720 /cert-ignore"
-        echo ""
-        echo "📱 للاتصال من تطبيق RD Client:"
-        echo "Host: $ip"
-        echo "Port: $port"
-        echo "========================================"
+        Write-Host "========================================"
+        Write-Host "🖥️  سيرفر RDP جاهز!"
+        Write-Host "========================================"
+        Write-Host "📡 IP: $ip"
+        Write-Host "🔌 PORT: $port"
+        Write-Host "👤 USER: runneradmin"
+        Write-Host "🔑 PASS: P@ssw0rd!"
+        Write-Host "========================================"
+        Write-Host ""
+        Write-Host "🔗 للاتصال من ويندوز:"
+        Write-Host "mstsc /v:${ip}:${port}"
+        Write-Host ""
+        Write-Host "📱 للاتصال من Termux:"
+        Write-Host "xfreerdp /v:${ip}:${port} /u:runneradmin /p:P@ssw0rd! /w:1280 /h:720 /cert-ignore"
+        Write-Host ""
+        Write-Host "📱 للاتصال من تطبيق RD Client:"
+        Write-Host "Host: $ip"
+        Write-Host "Port: $port"
+        Write-Host "========================================"
         
         # حفظ المعلومات في ملف
         $info = @"
-        ========================================
-        🖥️  معلومات الاتصال بالسيرفر
-        ========================================
-        IP: $ip
-        PORT: $port
-        USER: runneradmin
-        PASS: P@ssw0rd!
-        ========================================
-        "용"
+========================================
+🖥️  معلومات الاتصال بالسيرفر
+========================================
+IP: $ip
+PORT: $port
+USER: runneradmin
+PASS: P@ssw0rd!
+========================================
+"@
         $info | Out-File -FilePath "$env:USERPROFILE\Desktop\rdp_info.txt"
         
-        echo "✅ تم حفظ المعلومات في rdp_info.txt"
+        Write-Host "✅ تم حفظ المعلومات في rdp_info.txt"
+        
+        # إضافة متغيرات البيئة عشان تستخدمها لاحقاً
+        echo "RDP_IP=$ip" >> $env:GITHUB_ENV
+        echo "RDP_PORT=$port" >> $env:GITHUB_ENV
 
     - name: ⏰ تشغيل السيرفر
+      shell: pwsh
       run: |
         $hours = ${{ github.event.inputs.duration }}
         $minutes = $hours * 60
-        $total_seconds = $minutes * 60
         
-        echo "⏳ السيرفر شغال لمدة $hours ساعة"
-        echo ""
-        echo "📋 معلومات الاتصال:"
-        echo "   انظر السجلات أعلاه"
-        echo ""
-        echo "🔄 لعرض IP مرة أخرى:"
-        echo "   (Invoke-WebRequest -Uri 'https://api.ipify.org' -UseBasicParsing).Content"
-        echo ""
-        echo "⏱️  الوقت المتبقي:"
+        Write-Host "⏳ السيرفر شغال لمدة $hours ساعة"
+        Write-Host ""
+        Write-Host "📋 معلومات الاتصال:"
+        Write-Host "   IP: $env:RDP_IP"
+        Write-Host "   PORT: $env:RDP_PORT"
+        Write-Host "   USER: runneradmin"
+        Write-Host "   PASS: P@ssw0rd!"
+        Write-Host ""
+        Write-Host "🔗 mstsc /v:${env:RDP_IP}:${env:RDP_PORT}"
+        Write-Host ""
+        Write-Host "⏱️  الوقت المتبقي:"
         
         for ($i = $minutes; $i -gt 0; $i--) {
             $remaining_hours = [math]::Floor($i / 60)
@@ -106,5 +114,15 @@ jobs:
             Start-Sleep -Seconds 60
         }
         
-        echo "⏰ انتهت مدة السيرفر"
+        Write-Host "⏰ انتهت مدة السيرفر"
+
+    - name: 📊 عرض IP في النهاية
       shell: pwsh
+      if: always()
+      run: |
+        Write-Host "========================================"
+        Write-Host "📡 IP السيرفر: $env:RDP_IP"
+        Write-Host "🔌 PORT: $env:RDP_PORT"
+        Write-Host "👤 USER: runneradmin"
+        Write-Host "🔑 PASS: P@ssw0rd!"
+        Write-Host "========================================"
