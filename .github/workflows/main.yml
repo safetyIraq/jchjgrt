@@ -1,0 +1,110 @@
+# .github/workflows/rdp.yml
+name: Free Windows RDP Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'مدة التشغيل بالساعات (1-6)'
+        required: true
+        default: '6'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
+          - '6'
+
+jobs:
+  rdp:
+    runs-on: windows-latest
+    
+    steps:
+    - name: 🔧 تجهيز السيرفر
+      run: |
+        echo "🔄 جاري تجهيز السيرفر..."
+        
+        # تفعيل RDP
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+        
+        # فتح البورت في الجدار الناري
+        netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+        
+        # إضافة مستخدم
+        net user runneradmin P@ssw0rd! /add
+        net localgroup administrators runneradmin /add
+        
+        # منع النوم
+        powercfg -change -standby-timeout-ac 0
+        powercfg -change -hibernate-timeout-ac 0
+        
+        echo "✅ تم تجهيز السيرفر"
+
+    - name: 📡 جلب IP العام
+      run: |
+        $ip = (Invoke-WebRequest -Uri "https://api.ipify.org" -UseBasicParsing).Content
+        $port = 3389
+        
+        echo "========================================"
+        echo "🖥️  سيرفر RDP جاهز!"
+        echo "========================================"
+        echo "📡 IP: $ip"
+        echo "🔌 PORT: $port"
+        echo "👤 USER: runneradmin"
+        echo "🔑 PASS: P@ssw0rd!"
+        echo "========================================"
+        echo ""
+        echo "🔗 للاتصال من ويندوز:"
+        echo "mstsc /v:$ip:$port"
+        echo ""
+        echo "📱 للاتصال من Termux:"
+        echo "xfreerdp /v:$ip:$port /u:runneradmin /p:P@ssw0rd! /w:1280 /h:720 /cert-ignore"
+        echo ""
+        echo "📱 للاتصال من تطبيق RD Client:"
+        echo "Host: $ip"
+        echo "Port: $port"
+        echo "========================================"
+        
+        # حفظ المعلومات في ملف
+        $info = @"
+        ========================================
+        🖥️  معلومات الاتصال بالسيرفر
+        ========================================
+        IP: $ip
+        PORT: $port
+        USER: runneradmin
+        PASS: P@ssw0rd!
+        ========================================
+        "용"
+        $info | Out-File -FilePath "$env:USERPROFILE\Desktop\rdp_info.txt"
+        
+        echo "✅ تم حفظ المعلومات في rdp_info.txt"
+
+    - name: ⏰ تشغيل السيرفر
+      run: |
+        $hours = ${{ github.event.inputs.duration }}
+        $minutes = $hours * 60
+        $total_seconds = $minutes * 60
+        
+        echo "⏳ السيرفر شغال لمدة $hours ساعة"
+        echo ""
+        echo "📋 معلومات الاتصال:"
+        echo "   انظر السجلات أعلاه"
+        echo ""
+        echo "🔄 لعرض IP مرة أخرى:"
+        echo "   (Invoke-WebRequest -Uri 'https://api.ipify.org' -UseBasicParsing).Content"
+        echo ""
+        echo "⏱️  الوقت المتبقي:"
+        
+        for ($i = $minutes; $i -gt 0; $i--) {
+            $remaining_hours = [math]::Floor($i / 60)
+            $remaining_minutes = $i % 60
+            Write-Host "⏱️  متبقي: ${remaining_hours}h ${remaining_minutes}m"
+            Start-Sleep -Seconds 60
+        }
+        
+        echo "⏰ انتهت مدة السيرفر"
+      shell: pwsh
